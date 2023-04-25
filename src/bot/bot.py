@@ -5,9 +5,6 @@ description = '''Bot description here'''
 bot = commands.Bot(command_prefix='!geckobot', description=description, intents=discord.Intents.all())
 client = discord.Client(intents=discord.Intents.all())
 CHANNEL_TO_COMM_IN = 1094093145806999612
-geckometadatajsonfile = open('./geckos-metadata.json')
-geckometadata = json.load(geckometadatajsonfile)
-geckometadatajsonfile.close()
 config = dotenv_values(".env")
 
 @client.event
@@ -20,34 +17,28 @@ async def on_ready():
 async def on_message(message): 
     if message.author == client.user:
         return
-    if message.author.id != '382757219621666816':
+    if message.author.id != 382757219621666816:
         return
-    if '{}'.format(message.channel.id) != '{}'.format(CHANNEL_TO_COMM_IN):
-        return
-    if message.content.startswith('$sendSPA'):
-        await message.channel.send('Checking CRED balance, standby...')
-        arggecknum = message.content.split()[1]
-        arggecknum = re.sub('[^A-Za-z0-9]+', '', arggecknum)
-        geckostats = requests.get('https://galacticgeckos-ni5j6e99z-ggsg-team.vercel.app/api/stats').json()
-        tokenAddress = geckometadata[arggecknum]['TokenAddress']
-        found = False
-        for journeyinfo in geckostats['stakeEntryListReadable']:
-                if journeyinfo['originalMint'] == tokenAddress:
-                    print('FOUND! {}'.format(tokenAddress))
-                    found = True
-                    credBalance = journeyinfo['totalPoints'] /100
-                    credMessage = '```CRED Balance: {}```'.format(credBalance)
-                    await message.channel.send(credMessage)
-                    break
-        
-        if not found:
-            await message.channel.send('We\'re Sorry. Geck {} has no CRED :('.format(arggecknum))
-        # await message.channel.send(geckostats[1])
-    
-    if message.content.startswith('$geckobot'):
-        arg = message.content.split()[1]
-        if '{}'.format(arg) == 'help':
-            helpmessage = '```Available Commands: \n$getcred <geckonumber> : Get CRED balance for provided Gecko number\n$geckinfo <geckonumber> : Detailed info regarding a Gecko```'
-            await message.channel.send(helpmessage)
+    # if '{}'.format(message.channel.id) != '{}'.format(CHANNEL_TO_COMM_IN):
+    #     return
+    if message.content.startswith('$yowallet'):
+        splitMessage = message.content.split()
+        send = splitMessage[1]
+        if send == 'send':
+            tokenAmt = splitMessage[2]
+            tokenSymbol = splitMessage[3]
+            recepient = splitMessage[5]
+            print('{}\n{}\n{}'.format(tokenAmt,tokenSymbol,recepient))
+            txObj = {'symbol': '{}'.format(tokenSymbol), 'recepient': '{}'.format(recepient), 'amount': '{}'.format(tokenAmt)}
+            await message.channel.send('Sending Token, standby...')
+            tokenSend = requests.post('http://127.0.0.1:42069/send-token', json = txObj)
+            print(tokenSend.status_code)
+            if tokenSend.status_code == 200:
+                print('Res: {}'.format(tokenSend))
+                await message.channel.send('Successfully sent {} {} to {}'.format(tokenAmt,tokenSymbol,recepient))
+        else:
+            print('We have logged in as {0.user}'.format(client))
 
+        
+        print('Res: {}'.format(tokenSend))
 client.run(config['APP_TOKEN'])
