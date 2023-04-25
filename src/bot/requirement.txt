@@ -1,0 +1,5 @@
+discord.py==2.2.2
+aiohttp==3.8.4
+requests==2.22.0
+requests-unixsocket==0.2.0
+python-dotenv==1.0.0
