@@ -1,4 +1,4 @@
-import discord, logging, requests, json, csv, re, aiohttp, io, os
+import discord, logging, requests, json, csv, re, aiohttp, io, os, base58
 from dotenv import dotenv_values
 from discord.ext import commands
 description = '''Bot description here'''
@@ -9,9 +9,54 @@ config = dotenv_values(".env")
 
 @client.event
 async def on_ready():
+
     print('We have logged in as {0.user}'.format(client))
     # channel = client.get_channel(1056118223633928328)
     # await channel.send('hello')
+
+def isProbablyWalletAddress(solanaAddress):
+    if not isinstance(solanaAddress, str):
+        return False
+
+    # Check that the address is 32 bytes long
+    if len(solanaAddress) != 44:
+        return False
+
+    # Check that the address contains only hexadecimal characters
+    try:
+        bytes.fromhex(solanaAddress[3:])
+    except ValueError:
+        return False
+
+    return True
+
+async def sendTxn(tokenSymbol, recepient, tokenAmt):
+    txObj = {'symbol': '{}'.format(tokenSymbol), 'recepient': '{}'.format(recepient), 'amount': '{}'.format(tokenAmt)}
+    tokenSend = requests.post('http://127.0.0.1:42069/send-token-to-address', json = txObj)
+    return tokenSend
+
+async def queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit):
+    txObj = {'symbol': '{}'.format(tokenSymbol), 'amount': '{}'.format(tokenAmt), 'reactionLimit': '{}'.format(reactionLimit)}
+    queueCampaign = requests.post('http://127.0.0.1:42069/queue-reaction-campaign', json = txObj)
+    return queueCampaign
+
+async def getWalletDiscordUser(discordUser):
+    txObj = {'user_id': '{}'.format(discordUser)}
+    userWallet = requests.post('http://127.0.0.1:42069/get-wallet-by-discord-user', json = txObj)
+    return userWallet
+
+async def getActiveCampaign(messageId):
+    campaign = requests.get('http://127.0.0.1:42069/get-active-reaction-campaigns?message_id={}'.format(messageId))
+    return campaign
+
+@client.event
+async def on_reaction_add(reaction, user):
+    print('message_id: {}'.format(reaction.message.id))
+    activeCampaign = getActiveCampaign(reaction.message.id)
+    if(activeCampaign != [] and activeCampaign['totalReactions'] <= activeCampaign['maxReaction']):
+        wallet = getWalletDiscordUser(user)
+        sendTxn(activeCampaign.tokenSymbol, wallet, activeCampaign.amtToSend)
+
 
 @client.event
 async def on_message(message): 
@@ -24,21 +69,29 @@ async def on_message(message):
     if message.content.startswith('$yowallet'):
         splitMessage = message.content.split()
         send = splitMessage[1]
-        if send == 'send':
-            tokenAmt = splitMessage[2]
-            tokenSymbol = splitMessage[3]
-            recepient = splitMessage[5]
-            print('{}\n{}\n{}'.format(tokenAmt,tokenSymbol,recepient))
-            txObj = {'symbol': '{}'.format(tokenSymbol), 'recepient': '{}'.format(recepient), 'amount': '{}'.format(tokenAmt)}
-            await message.channel.send('Sending Token, standby...')
-            tokenSend = requests.post('http://127.0.0.1:42069/send-token', json = txObj)
-            print(tokenSend.status_code)
-            if tokenSend.status_code == 200:
-                print('Res: {}'.format(tokenSend))
-                await message.channel.send('Successfully sent {} {} to {}'.format(tokenAmt,tokenSymbol,recepient))
-        else:
-            print('We have logged in as {0.user}'.format(client))
+        tokenAmt = splitMessage[2]
+        tokenSymbol = splitMessage[3]
+        fifthArg = splitMessage[5]
 
-        
-        print('Res: {}'.format(tokenSend))
+        if send == 'send':
+            if fifthArg == 'the':
+                if splitMessage[6] == 'first':
+                    reactionLimit = splitMessage[7]
+                    print('queue reaction based campaign')
+                    # queuedCampaign = queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit)
+                    # send based on reactions
+            if isProbablyWalletAddress(fifthArg) == True:
+                recepient = splitMessage[5]
+                await message.channel.send('Sending Token, standby...')
+                sendToken = sendTxn(tokenSymbol, recepient, tokenAmt)
+                if sendToken.status_code == 200:
+                    sendTokenJson = sendToken.json()
+                    print('Res: {}'.format(sendTokenJson))
+                    if sendToken.json()["success"] == "true":
+                        await message.channel.send('Successfully sent {} {} to {} https://solscan.io/tx/{}?cluster=devnet'.format(tokenAmt,tokenSymbol,recepient,sendTokenJson["tx_signature"]))
+                    else:
+                        await message.channel.send('Transaction failed')
+        else:
+            print('Invalid command')
+            await message.channel.send('Invalid Command')
 client.run(config['APP_TOKEN'])

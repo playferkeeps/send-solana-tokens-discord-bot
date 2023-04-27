@@ -32,6 +32,7 @@ export async function sendToken(tokenSymbolOrAddress, amountToSend, recipient) {
     }
 
     const token = tokenResult[0];
+    console.log(token)
 
     const mintAddress = token.mintAddress;
     // Connect to cluster
@@ -79,12 +80,12 @@ export async function sendToken(tokenSymbolOrAddress, amountToSend, recipient) {
     const signature = await sendAndConfirmTransaction(connection, tx, [fromWallet]);
     console.log(
         '\x1b[32m', //Green Text
-        `   Transaction Success!🎉 ${amountToSend} ${token.symbol} Sent!`,
-        `\n     https://solscan.io/tx/${signature}?cluster=devnet`
+        `Transaction Success!🎉 ${amountToSend} ${token.symbol} Sent!`,
+        `\n  https://solscan.io/tx/${signature}?cluster=devnet`
     );
 
     console.log(`dev collected: ${tax} $${token.symbol}`)
-        return 'success'
+    return signature
 }
 
 export default {
