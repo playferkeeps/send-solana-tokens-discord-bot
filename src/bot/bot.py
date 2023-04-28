@@ -30,23 +30,35 @@ def isProbablyWalletAddress(solanaAddress):
 
     return True
 
+async def handleRequest(type, url, data = {}):
+    try:
+        if type == 'get':
+            return await requests.get(url)
+        elif type == 'post':
+            return await requests.post(url, json = data)
+        elif type == 'delete':
+            return await requests.delete(url, json = data)
+        elif type == 'put':
+            return await requests.put(url, json = data)
+    except:
+        return {'success': 'false', 'message': 'A request exception occured'}
+
 async def sendTxn(tokenSymbol, recepient, tokenAmt):
     txObj = {'symbol': '{}'.format(tokenSymbol), 'recepient': '{}'.format(recepient), 'amount': '{}'.format(tokenAmt)}
-    tokenSend = requests.post('http://127.0.0.1:42069/send-token-to-address', json = txObj)
+    tokenSend = await handleRequest('post', 'http://127.0.0.1:42069/send-token-to-address', json = txObj)
     return tokenSend
 
 async def queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit):
     txObj = {'symbol': '{}'.format(tokenSymbol), 'amount': '{}'.format(tokenAmt), 'reactionLimit': '{}'.format(reactionLimit)}
-    queueCampaign = requests.post('http://127.0.0.1:42069/queue-reaction-campaign', json = txObj)
+    queueCampaign = await handleRequest('post', 'http://127.0.0.1:42069/queue-reaction-campaign', json = txObj)
     return queueCampaign
 
 async def getWalletDiscordUser(discordUser):
-    txObj = {'user_id': '{}'.format(discordUser)}
-    userWallet = requests.post('http://127.0.0.1:42069/get-wallet-by-discord-user', json = txObj)
+    userWallet = await handleRequest('get', 'http://127.0.0.1:42069/get-wallet-by-discord-user?discord_user={}'.format(discordUser))
     return userWallet
 
 async def getActiveCampaign(messageId):
-    campaign = requests.get('http://127.0.0.1:42069/get-active-reaction-campaigns?message_id={}'.format(messageId))
+    campaign = await handleRequest('get', 'http://127.0.0.1:42069/get-active-reaction-campaigns?message_id={}'.format(messageId))
     return campaign
 
 @client.event
@@ -55,8 +67,7 @@ async def on_reaction_add(reaction, user):
     activeCampaign = getActiveCampaign(reaction.message.id)
     if(activeCampaign != [] and activeCampaign['totalReactions'] <= activeCampaign['maxReaction']):
         wallet = getWalletDiscordUser(user)
-        sendTxn(activeCampaign.tokenSymbol, wallet, activeCampaign.amtToSend)
-
+        return sendTxn(activeCampaign.tokenSymbol, wallet, activeCampaign.amtToSend)
 
 @client.event
 async def on_message(message): 
@@ -78,8 +89,12 @@ async def on_message(message):
                 if splitMessage[6] == 'first':
                     reactionLimit = splitMessage[7]
                     print('queue reaction based campaign')
-                    # queuedCampaign = queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit)
-                    # send based on reactions
+                    queuedCampaign = queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit)
+                    if queuedCampaign.json()["success"] == "true":
+                        await message.channel.send('Successfully started campain for {} {} for the first {} reactions'.format(tokenAmt,tokenSymbol,recepient))
+                    else:
+                        await message.channel.send('Transaction failed')
+
             if isProbablyWalletAddress(fifthArg) == True:
                 recepient = splitMessage[5]
                 await message.channel.send('Sending Token, standby...')
