@@ -41,7 +41,7 @@ async def handleRequest(type, url, data = {}):
         elif type == 'put':
             return await requests.put(url, json = data)
     except:
-        return {'success': 'false', 'message': 'A request exception occured'}
+        return {'success': 'false', 'message': 'A {} request exception occured! url: {}'.format(type,url)}
 
 async def sendTxn(tokenSymbol, recepient, tokenAmt):
     txObj = {'symbol': '{}'.format(tokenSymbol), 'recepient': '{}'.format(recepient), 'amount': '{}'.format(tokenAmt)}
@@ -50,7 +50,7 @@ async def sendTxn(tokenSymbol, recepient, tokenAmt):
 
 async def queueReactionCampaign(tokenSymbol, tokenAmt, reactionLimit):
     txObj = {'symbol': '{}'.format(tokenSymbol), 'amount': '{}'.format(tokenAmt), 'reactionLimit': '{}'.format(reactionLimit)}
-    queueCampaign = await handleRequest('post', 'http://127.0.0.1:42069/queue-reaction-campaign', json = txObj)
+    queueCampaign = await handleRequest('post', 'http://127.0.0.1:42069/init-reaction-campaign', json = txObj)
     return queueCampaign
 
 async def getWalletDiscordUser(discordUser):
